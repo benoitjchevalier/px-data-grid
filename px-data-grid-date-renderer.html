@@ -94,9 +94,9 @@
           var result;
           if(this.value) {
             if(this.displayFormat === 'ISO') {
-              result = window.Px.moment(value).toISOString();
+              result = window.Px.moment(value, this.dataFormat).toISOString();
             } else {
-              result = window.Px.moment(value).format(this.displayFormat);
+              result = window.Px.moment(value, this.dataFormat).format(this.displayFormat);
             }
           } else {
             result = '';
@@ -107,7 +107,7 @@
 
         validate() {
           return {
-            valid: (!this.column.required && this.value) || window.Px.moment(this.value).isValid(),
+            valid: (!this.column.required && this.value) || window.Px.moment(this.value, this.dataFormat).isValid(),
             message: this.localize('Date is invalid')
           };
         }
