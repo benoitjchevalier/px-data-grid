@@ -69,6 +69,8 @@
             columns="{{props.columns.value}}"
             grid-height="{{props.gridHeight.value}}"
             table-actions="{{props.tableActions.value}}"
+            editable="{{props.editable.value}}"
+            filterable="{{props.filterable.value}}"
             on-table-action="tableActionListener">
         </px-data-grid-paginated>
 
@@ -445,6 +447,12 @@
         inputChoices: ['none', 'single', 'multi']
       },
 
+      filterable: {
+        type: Boolean,
+        defaultValue: false,
+        inputType: 'toggle'
+      },
+
       autoHidePageList: {
         type: Boolean,
         defaultValue: true,
@@ -500,6 +508,12 @@
         inputType: 'toggle'
       },
 
+      editable: {
+        type: Boolean,
+        defaultValue: false,
+        inputType: 'toggle'
+      },
+
       selectablePageSizes: {
         type: Array,
         value: [10, 20, 30],
@@ -518,7 +532,10 @@
         value: [
           {
             path: 'first',
-            name: 'First Name'
+            name: 'First Name',
+            editable: true,
+            required: true,
+            renderer: 'px-data-grid-string-renderer'
           },
           {
             path: 'last',
