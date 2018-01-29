@@ -92,8 +92,8 @@
         _getFormattedDate(value) {
 
           var result;
-          if(this.value) {
-            if(this.displayFormat === 'ISO') {
+          if (this.value) {
+            if (this.displayFormat === 'ISO') {
               result = window.Px.moment(value, this.dataFormat).toISOString();
             } else {
               result = window.Px.moment(value, this.dataFormat).format(this.displayFormat);
@@ -114,11 +114,11 @@
 
         _valueObserver(value) {
 
-          if(!this._initialType) {
+          if (!this._initialType) {
             this._initialType = typeof value;
           }
 
-          if(value || value === 0) {
+          if (value || value === 0) {
             this.momentObj = window.Px.moment(value, this.dataFormat);
           }
         }
@@ -128,12 +128,12 @@
             return;
           }
 
-          if(window.Px.moment(this.value, this.dataFormat).toISOString() !== momentObj.toISOString()) {
+          if (window.Px.moment(this.value, this.dataFormat).toISOString() !== momentObj.toISOString()) {
 
-            //for timestamp-like data try to preserve the type
-            if(this._initialType === 'number' && (this.dataFormat === 'X' || this.dataFormat === 'x')) {
+            // for timestamp-like data try to preserve the type
+            if (this._initialType === 'number' && (this.dataFormat === 'X' || this.dataFormat === 'x')) {
               this.value = Number(momentObj.format(this.dataFormat));
-            } else if(this.dataFormat === 'ISO') {
+            } else if (this.dataFormat === 'ISO') {
               this.value = momentObj.toISOString();
             } else {
               this.value = momentObj.format(this.dataFormat);
@@ -142,16 +142,16 @@
         }
 
         _rendererConfigChanged() {
-          if(this.column.rendererConfig.hasOwnProperty('hideDate')) {
+          if (this.column.rendererConfig.hasOwnProperty('hideDate')) {
             this.hideDate = this.column.rendererConfig.hideDate;
           }
-          if(this.column.rendererConfig.hasOwnProperty('hideTime')) {
+          if (this.column.rendererConfig.hasOwnProperty('hideTime')) {
             this.hideTime = this.column.rendererConfig.hideTime;
           }
-          if(this.column.rendererConfig.hasOwnProperty('displayFormat')) {
+          if (this.column.rendererConfig.hasOwnProperty('displayFormat')) {
             this.displayFormat = this.column.rendererConfig.displayFormat;
           }
-          if(this.column.rendererConfig.hasOwnProperty('dataFormat')) {
+          if (this.column.rendererConfig.hasOwnProperty('dataFormat')) {
             this.dataFormat = this.column.rendererConfig.dataFormat;
           }
         }
