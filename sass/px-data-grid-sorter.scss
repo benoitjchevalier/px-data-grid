@@ -4,26 +4,56 @@
   display: inline-flex;
   flex: 1;
   cursor: pointer;
+  color: inherit;
+  stroke: inherit;
+  text-overflow: var(--px-data-grid-header-text-overflow, ellipsis);
+  overflow: hidden;
 }
 
-:host([direction]) [part="content"] {
-  color: var(--px-data-grid-cell-text-color--sorted, rgb(129,129,129));
+/* When a column is sorted we use a differnet color */
+:host([direction]){
+  color: var(--px-data-grid-cell-text-color--sorted, inherit);
+  stroke: var(--px-data-grid-cell-text-color--sorted, inherit);
+
+}
+
+/* When hovering revert back to parent's color, only needed because "sorted" has
+a different color. */
+:host(:hover),
+:host([direction]:hover){
+  color: inherit;
+  stroke: inherit;
+}
+
+/* Because of IE11 compatibility, we have to re-define the colors
+for :active here as it would seem that this pseudo-class does not propagate
+arcoss shadyDom boundaries. Ideally we'd just use "inherit" here
+and let the parent set the color, but not if we want it to wowrk in IE11.
+These rules and colors mirror what's been set in
+px-data-grid-header-cell.scss */
+:host(:active),
+:host([direction]:active){
+  color: var(--px-data-grid-header-text-color--active, inherit);
+  stroke: var(--px-data-grid-header-text-color--active, inherit);
 }
 
 [part="content"] {
   overflow: hidden;
-  text-overflow: ellipsis;
+  text-overflow: var(--px-data-grid-header-text-overflow, ellipsis);
   pointer-events: none;
+  white-space: var(--px-data-grid-header-text-white-space, nowrap);
+
+  //Have to give a width in order for ellipsis to work inside a flexbox.
+  width: auto;
+  flex-shrink: 1;
+  flex-grow: 0;
 }
 
 [part="indicators"] {
   white-space: nowrap;
-  flex: 0;
-  color: var(--px-data-grid-cell-text-color--sorted,  rgb(129,129,129));
-}
-
-[part="indicators"]:hover {
-  color: var(--px-data-grid-text-color--hover, rgb(92,92,92));
+  color: inherit;
+  flex-grow: 1;
+  width: auto;
 }
 
 .order-icon {

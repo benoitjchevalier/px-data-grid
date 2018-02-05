@@ -14,6 +14,7 @@ px-dropdown {
 .action-select {
   display: flex;
   align-items: center;
+  margin-bottom: 14px;
 }
 
 .action-select > * + * {
@@ -31,5 +32,13 @@ button.btn.btn--icon.btn--bare--primary {
 }
 
 .no-filters {
-  margin-bottom: 20px;
+  margin-bottom: 4px;
+}
+
+.add-filter {
+  margin-top: 4px;
+}
+
+.add-filter px-icon {
+  --iron-icon-height: 16px;
 }

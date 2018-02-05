@@ -5,15 +5,19 @@
   padding-top: 10px;
   --px-dropdown-toggle-icon-size: 8px;
   margin-left: calc(0px - var(--px-dropdown-toggle-icon-size));
+  --iron-icon-stroke-color: inherit;
+  color: var(--px-data-grid-header-text-color, inherit);
+  stroke: var(--px-data-grid-header-text-color, rgb(44,64,76));
 }
 
 px-icon {
   --iron-icon-height: var(--px-dropdown-toggle-icon-size);
   --iron-icon-width: var(--px-dropdown-toggle-icon-size);
-  --iron-icon-fill-color: var(--px-data-grid-cell-text-color--sorted, rgb(129,129,129));
-  --iron-icon-stroke-color: var(--px-data-grid-cell-text-color--sorted, rgb(129,129,129));
   cursor: pointer;
   padding-bottom: 3px;
+  color: inherit;
+  --iron-icon-stroke-color: inherit;
+
 }
 
 px-dropdown {
@@ -29,3 +33,25 @@ px-dropdown[hidden] {
 :host ::slotted(vaadin-grid-sorter) {
   align-items: center;
 }
+
+:host px-icon{
+  color: inherit;
+  stroke: inherit;
+}
+
+:host(:hover),
+:host(:hover) px-icon{
+  color: var(--px-data-grid-header-text-color--hover, inherit);
+  fill: var(--px-data-grid-header-text-color--hover, rgb(44,64,76));
+  stroke: var(--px-data-grid-header-text-color--hover, rgb(44,64,76));
+}
+
+:host(:active),
+:host(:active) px-icon{
+  color: var(--px-data-grid-header-text-color--active, inherit);
+  fill: var(--px-data-grid-header-text-color--active, rgb(44,64,76));
+  stroke: var(--px-data-grid-header-text-color--active, rgb(44,64,76));
+}
+
+
+

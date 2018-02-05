@@ -84,11 +84,10 @@
             },
 
             /**
-             * If true, the grid is in the remote-data-provider mode
+             * If false, 'Group by Column' will be disallowed (e.g. in cases of remote data provider or expandable rows)
              */
-            isRemoteDataProvider: {
-              type: Boolean,
-              value: false
+            groupByColumnAllowed: {
+              type: Boolean
             },
 
             localize: Function
@@ -112,7 +111,7 @@
 
           const headerCellContentWrapper = document.createElement('px-data-grid-header-cell');
           headerCellContentWrapper.appendChild(inst.root);
-          headerCellContentWrapper.isRemoteDataProvider = this.isRemoteDataProvider;
+          headerCellContentWrapper.groupByColumnAllowed = this.groupByColumnAllowed;
           headerCellContentWrapper._column = this;
 
           headerCell._content.appendChild(headerCellContentWrapper);
@@ -147,9 +146,13 @@
         }
 
         _checkIfValueChanged(value, propertyName) {
-          if (this.mappedObject && this.mappedObject[propertyName] != value) {
-            this.mappedObject[propertyName] = value;
-            this._fireStatusChange(this.mappedObject, propertyName);
+          if (this.mappedObject) {
+            if (this.mappedObject[propertyName] != value) {
+              this.mappedObject[propertyName] = value;
+              this._fireStatusChange(this.mappedObject, propertyName, value, true);
+            } else {
+              this._fireStatusChange(this.mappedObject, propertyName, value, false);
+            }
           }
         }
 
@@ -161,14 +164,16 @@
           this._checkIfValueChanged(frozen, 'frozen');
         }
 
-        _fireStatusChange(mappedObject, value) {
+        _fireStatusChange(mappedObject, propertyName, value, updatedModel) {
           this._renderDebouncer = Polymer.Debouncer.debounce(
             this._renderDebouncer,
             Polymer.Async.timeOut.after(this.timeout), () => {
               this.dispatchEvent(new CustomEvent('column-change', {
                 detail: {
                   column: mappedObject,
-                  type: value
+                  type: propertyName,
+                  value: value,
+                  updatedModel: updatedModel
                 },
                 bubbles: true
               }));

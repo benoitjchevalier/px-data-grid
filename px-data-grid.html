@@ -21,7 +21,7 @@
 <link rel="import" href="px-data-grid-filters-modal.html">
 <link rel="import" href="px-data-grid-filters-preview.html">
 <link rel="import" href="px-data-grid-sorter.html">
-<link rel="import" href="px-data-grid-edit-buttons.html">
+<link rel="import" href="px-data-grid-action-column.html">
 
 <link rel="import" href="px-data-grid-filterable-mixin.html">
 
@@ -50,7 +50,8 @@
               columns="[[columns]]"
               localize="[[_boundedLocalize]]"
               offer-filter-saving="[[offerFilterSaving]]"
-              initial-filter-state="[[_initialFilterState]]">
+              initial-filter-state="[[_initialFilterState]]"
+              compact-mode="[[compactAdvancedFilterDialog]]">
             </px-data-grid-filters-modal>
           </template>
 
@@ -78,13 +79,20 @@
                  striped$="[[_isStriped(striped,_groupByColumn)]]"
                  selected-items="{{selectedItems}}"
                  multi-sort="[[multiSort]]"
-                 item-id-path="[[itemIdPath]]"
+                 item-id-path="{{itemIdPath}}"
                  page-size="{{pageSize}}"
                  auto-height$="[[_isAutoHeight(gridHeight)]]"
                  loading="{{_loading}}">
 
       <template is="dom-if" if="[[_isSelectable(selectionMode)]]" restamp>
-        <px-data-grid-selection-column frozen auto-select hidden="[[hideSelectionColumn]]" multi-select="[[_isMultiSelect(selectionMode)]]" tree-grid="[[_groupByColumn]]">
+        <px-data-grid-selection-column
+          frozen
+          auto-select
+          hidden="[[hideSelectionColumn]]"
+          multi-select="[[_isMultiSelect(selectionMode)]]"
+          tree-grid="[[_groupByColumn]]"
+          allow-sort-by-selection="[[allowSortBySelection]]"
+        >
         </px-data-grid-selection-column>
       </template>
 
@@ -106,7 +114,7 @@
           width="[[_getColumnWidth(column)]]"
           flex-grow="[[_getColumnFlexGrow(column)]]"
           on-column-change="_onColumnUpdate"
-          is-remote-data-provider="[[!_hasLocalDataProvider]]"
+          group-by-column-allowed="[[_groupByColumnAllowed(_hasLocalDataProvider, _expandableRows)]]"
           is-data-column="true">
           <template class="header">
             <px-data-grid-sorter path="[[_resolveColumnPath(column)]]">[[resolveColumnHeader(column)]]</px-data-grid-sorter>
@@ -125,7 +133,12 @@
                       <px-icon icon="px-utl:chevron"></px-icon>
                     </template>
                   </template>
-                  <px-data-grid-cell-content-wrapper cell-color="[[_resolveCellColor(item, column, _highlightEntities.*)]]" item="{{item}}" column="[[column]]" localize="[[_boundedLocalize]]">
+                  <px-data-grid-cell-content-wrapper
+                    focus-target
+                    cell-color="[[_resolveCellColor(item, column, _highlightEntities.*)]]"
+                    item="{{item}}"
+                    column="[[column]]"
+                    localize="[[_boundedLocalize]]">
                   </px-data-grid-cell-content-wrapper>
                 </vaadin-grid-tree-toggle>
               </template>
@@ -133,7 +146,12 @@
 
             <dom-if if="[[!_isGroupedByColumn(column, _groupByColumn)]]">
               <template>
-                <px-data-grid-cell-content-wrapper cell-color="[[_resolveCellColor(item, column, _highlightEntities.*, _editingItem)]]" item="{{item}}" column="[[column]]" localize="[[_boundedLocalize]]">
+                <px-data-grid-cell-content-wrapper
+                  focus-target
+                  cell-color="[[_resolveCellColor(item, column, _highlightEntities.*, _editingItem)]]"
+                  item="{{item}}"
+                  column="[[column]]"
+                  localize="[[_boundedLocalize]]">
                 </px-data-grid-cell-content-wrapper>
               </template>
             </dom-if>
@@ -141,21 +159,14 @@
         </px-data-grid-column>
       </template>
 
-      <template is="dom-if" if="[[editable]]" restamp>
-        <px-data-grid-column
-          flex-grow="0">
-          <template>
-            <dom-if if="[[!_isAnyItemEditing(_editingItem)]]">
-              <template>
-                <px-icon icon="px-utl:edit" on-click="_setEditingItem"></px-icon>
-              </template>
-            </dom-if>
-            <dom-if if="[[_isItemEditing(item, _editingItem)]]">
-              <template>
-                <px-data-grid-edit-buttons save="[[_boundedSaveItem]]" cancel="[[_boundedCancelEdit]]"></px-data-grid-edit-buttons>
-              </template>
-            </dom-if>
-          </template>
+      <template is="dom-if" if="[[_offerActionColumn(editable, itemActions)]]" restamp>
+        <px-data-grid-action-column
+          item-actions="[[itemActions]]"
+          editted-item="[[_editingItem]]"
+          edit-mode="[[editable]]"
+          edit="[[_boundedEditItem]]"
+          save="[[_boundedSaveItem]]"
+          cancel="[[_boundedCancelEdit]]">
         </px-data-grid-column>
       </template>
     </vaadin-grid>
@@ -437,12 +448,47 @@
             },
 
             /**
-             * All custom table actions shown before columns. Arrays should contain objects
+             * All custom table actions shown before columns. Array should contain objects
              * with name (String, shown to user) and id (String, given back in event).
              * When user selects these actions table-action event will be emitted, with id of
              * action at event.detail.id
+             * ```
+             * [
+             *   {
+             *     name: 'Export CSV',
+             *     id: 'CSV'
+             *   }
+             *   {
+             *     name: 'Export Excel',
+             *     id: 'Excel'
+             *   }
+             * ]
+             * ```
              */
             tableActions: {
+              type: Array,
+              value: []
+            },
+
+            /**
+             * All custom item actions shown on the data rows. Array should contain objects
+             * with name (String, shown to user) and id (String, given back in event).
+             * When user selects these actions item-action event will be emitted, with id of
+             * action at event.detail.id
+             * ```
+             * [
+             *   {
+             *     name: 'Add Row',
+             *     id: 'add'
+             *   }
+             *   {
+             *     name: 'Delete Row',
+             *     id: 'delete'
+             *   }
+             * ]
+             * ```
+             */
+            itemActions: {
               type: Array,
               value: []
             },
@@ -457,6 +503,14 @@
 
             _currentDataProvider: {
               type: Function
+            },
+
+            /**
+             * If true, row-details template is provided and rows are expandable
+             */
+            _expandableRows: {
+              type: Boolean,
+              value: false
             },
 
             /**
@@ -578,11 +632,13 @@
             },
 
             /**
-             * Path to an item sub-property that identifies the item.
+             * Path to an item sub-property that identifies the item. This should be
+             * defined in case of any editing, to allow grid to pair new version of
+             * item with new. Path must point to unique identifier in data objects
+             * that does not change (eg. 'id')
              */
             itemIdPath: {
-              type: String,
-              value: null
+              type: String
             },
 
             /**
@@ -592,6 +648,31 @@
             offerFilterSaving: {
               type: Boolean,
               value: false
+            },
+
+            /**
+             * If user is allowed to sort by selection
+             */
+            allowSortBySelection: {
+              type: Boolean,
+              value: false
+            },
+
+            /**
+             * If enabled in multi selection and sort by selection mode any
+             * changes to selection will cause instant resort
+             */
+            instantSortWhenSelection: {
+              type: Boolean,
+              value: true
+            },
+
+            /* If true advanced filter dialog will be rendered in space saving
+             * mode (eg. reuseable headers).
+             */
+            compactAdvancedFilterDialog: {
+              type: Boolean,
+              value: true
             },
 
             /**
@@ -623,8 +704,9 @@
           return [
             '_highlightsObserver(highlight, _filterHighlights, highlight.*, _filterHightlights.*)',
             '_localizeChanged(localize)',
-            '_tableDataChanged(tableData, isAttached)',
-            '_setColumnId(columns, columns.*)'
+            '_tableDataChanged(tableData, tableData.*, isAttached)',
+            '_setColumnId(columns, columns.*)',
+            '_selectedItemsChanged(selectedItems.*)'
           ];
         }
 
@@ -651,6 +733,7 @@
             return node.localName && node.localName === 'template' && node.className && node.className.indexOf('row-details') !== -1;
           });
           if (rowDetailsTemplate.length) {
+            this._expandableRows = true;
             this._vaadinGrid._rowDetailsTemplate = rowDetailsTemplate[0];
 
             const templatizer = new Vaadin.Grid.Templatizer();
@@ -706,6 +789,7 @@
 
           this._boundedCancelEdit = this._cancelEdit.bind(this);
           this._boundedSaveItem = this._saveItem.bind(this);
+          this._boundedEditItem = this._setEditingItem.bind(this);
 
           document.addEventListener('renderer-editing-changed', (event) => {
             const renderer = event.detail.renderer;
@@ -723,13 +807,92 @@
           this._vaadinGrid.removeAttribute('tree-grid');
         }
 
-        _handleColumnFroze(event) {
-          const columnsRow = this._vaadinGrid._columnTree[this._vaadinGrid._columnTree.length - 1].slice(0);
-          const dataColumns = columnsRow.filter(c => c.isDataColumn);
-          if (dataColumns.length) {
-            this._vaadinGrid.insertBefore(event.detail.column, dataColumns[0]);
-            Polymer.RenderStatus.afterNextRender(this._vaadinGrid, () => this._vaadinGrid.notifyResize());
+        _resolveLastFrozenColumnIndex() {
+          let lastColumnFrozen = undefined;
+
+          const columns = this._getColumns();
+
+          for (let i = 0; i < columns.length; ++i) {
+            if (columns[i].frozen) {
+              lastColumnFrozen = i;
+            }
           }
+
+          return lastColumnFrozen;
+        }
+
+        _columnSanityCheck() {
+          const lastColumnFrozen = this._resolveLastFrozenColumnIndex();
+
+          if (lastColumnFrozen !== undefined) {
+            const columns = this._getColumns();
+            const lastFrozenColumn = columns[lastColumnFrozen];
+
+            if (lastColumnFrozen > 0) {
+
+              for (let i = 0; i < lastColumnFrozen; ++i) {
+                if (!columns[i].frozen) {
+                  columns[i].frozen = true;
+                  if (columns[i].mappedObject) {
+                    columns[i].mappedObject.frozen = true;
+                  }
+                }
+              }
+            }
+
+            columns.forEach(c => c._lastFrozenChanged(c === lastFrozenColumn));
+          }
+        }
+
+        // put frozen column to the beginning (in the place of the first data column)
+        _handleColumnFroze(event) {
+          const columns = this._vaadinGrid._columnTree[0];
+          const frozenColumnId = event.detail.column.mappedObject ? event.detail.column.mappedObject.id : undefined;
+
+          if (frozenColumnId === undefined) {
+            console.warn('Failed to resolve column ID of frozen column');
+            return;
+          }
+
+          let firstDataColumnIndex = 0;
+          for (let i = 0; i < columns.length; i++) {
+            if (columns[i].isDataColumn) {
+              firstDataColumnIndex = i;
+              break;
+            }
+          }
+
+          let targetColumnIndex = 0;
+          for (let i = 0; i < columns.length; i++) {
+            if (columns[i].isDataColumn) {
+              const columnObj = columns[i].mappedObject;
+              if (columnObj && columnObj.id === frozenColumnId) {
+                targetColumnIndex = i;
+                break;
+              }
+            }
+          }
+
+          columns.splice(firstDataColumnIndex, 0, columns.splice(targetColumnIndex, 1)[0]); // https://stackoverflow.com/a/2440723/1331425
+          this._vaadinGrid._updateOrders(this._vaadinGrid._columnTree, true);
+        }
+
+        _doInstantSortAfterSelect() {
+          return this.instantSortWhenSelection
+            && this.allowSortBySelection
+            && Array.from(this._vaadinGrid._sorters)
+              .map(s => s.path)
+              .filter(p => p === '--selection--').length > 0;
+        }
+
+        _selectedItemsChanged(selectedItems) {
+          if (this._doInstantSortAfterSelect()) {
+            this._vaadinGrid.clearCache();
+          }
+        }
+
+        _groupByColumnAllowed(hasLocalDataProvider, expandableRows) {
+          return hasLocalDataProvider && !expandableRows;
         }
 
         /**
@@ -818,7 +981,7 @@
           }).length;
         }
 
-        _tableDataChanged(tableData, isAttached) {
+        _tableDataChanged(tableData, splices, isAttached) {
           if (!isAttached) {
             return;
           }
@@ -833,6 +996,20 @@
             this._hasLocalDataProvider = true;
           }
           this._editingItem = null;
+        }
+
+        _compareValues(a, b, path, direction) {
+          // Selection is inverted to make selected smaller than not selected
+          const valueA = path === '--selection--' ? !this._vaadinGrid._isSelected(a) : Polymer.Base.get(path, a);
+          const valueB = path === '--selection--' ? !this._vaadinGrid._isSelected(b) : Polymer.Base.get(path, b);
+
+          if (direction === 'asc') {
+            return this._compare(valueA, valueB);
+          } else if (direction === 'desc') {
+            return this._compare(valueB, valueA);
+          } else {
+            return 0;
+          }
         }
 
         /**
@@ -854,15 +1031,15 @@
               items = this._applyCustomFilter(items, this.columns, advancedFilters);
             }
           }
+
           if (params.sortOrders && params.sortOrders.length && this._vaadinGrid._checkPaths(this._sorters, 'sorting', items)) {
             const multiSort = (a, b) => {
               return params.sortOrders.map(sort => {
-                if (sort.direction === 'asc') {
-                  return this._compare(Polymer.Base.get(sort.path, a), Polymer.Base.get(sort.path, b));
-                } else if (sort.direction === 'desc') {
-                  return this._compare(Polymer.Base.get(sort.path, b), Polymer.Base.get(sort.path, a));
+                if (sort.direction === 'asc' || sort.direction === 'desc') {
+                  return this._compareValues(a, b, sort.path, sort.direction);
+                } else {
+                  return 0;
                 }
-                return 0;
               }).reduce((p, n) => {
                 return p ? p : n;
               }, 0);
@@ -877,7 +1054,7 @@
         }
 
         _localDataProvider(params, callback) {
-          let items = Array.isArray(this.tableData) ? this.tableData : [];
+          let items = (Array.isArray(this.tableData) ? this.tableData : []).slice(0);
           if (this._groupByColumn) {
             const columnPath = this._groupByColumn.path;
             if (!params.parentItem) {
@@ -1071,9 +1248,21 @@
           return this.columns.filter((column) => column.id === columnId)[0];
         }
 
+        _scheduleColumnSanityCheck() {
+          this._columnSanityCheckDebouncer = Polymer.Debouncer.debounce(
+            this._columnSanityCheckDebouncer,
+            Polymer.Async.idlePeriod,
+            () => {
+              this._columnSanityCheck();
+            }
+          );
+        }
+
         _onColumnUpdate(event) {
           if (event.detail.type == 'hidden') {
             this._updateActionMenu();
+          } else if (event.detail.type == 'frozen') {
+            this._scheduleColumnSanityCheck();
           }
         }
 
@@ -1273,7 +1462,7 @@
         _setEditingItem(event) {
           // To prevent selections
           event.stopPropagation();
-          this._editingItem = event.model.item;
+          this._editingItem = event.details.item;
         }
 
         _cancelEdit(event) {
@@ -1334,7 +1523,7 @@
 
           this._pxDataGrid._editingItem = null;
 
-          const sorter = e.target;
+          const sorter = e.detail.sorter;
 
           this._removeArrayItem(this._sorters, sorter);
           sorter._order = null;
@@ -1537,6 +1726,10 @@
             return 1;
           }
           return 0;
+        }
+
+        _offerActionColumn(editable, itemActions) {
+          return editable || (itemActions && itemActions.length > 0);
         }
 
         getState() {
