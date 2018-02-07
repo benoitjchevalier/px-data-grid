@@ -14,7 +14,7 @@
         item="[[item]]"
         edit="[[edit]]"
         offer-edit="[[_offerEditButtonFor(edittedItem, item, editMode)]]"
-        offer-actions="[[_offerItemActions(edittedItem)]]"
+        offer-actions="[[_offerItemActions(edittedItem, item)]]"
         on-checked-changed="_onSelectAllCheckedChanged"
         item-actions="[[itemActions]]">
       </px-data-grid-action-buttons>
@@ -94,6 +94,24 @@
           };
         }
 
+        static get observers() {
+          return [
+            '_toggleEditClassName(edittedItem)'
+          ];
+        }
+
+        _toggleEditClassName(edittedItem) {
+          if (this._cells) {
+            this._cells.forEach(cell => {
+              if (edittedItem) {
+                cell.removeAttribute('hidden-unless-hover');
+              } else {
+                cell.setAttribute('hidden-unless-hover', '1');
+              }
+            });
+          }
+        }
+
         _prepareHeaderTemplate() {
           const headerTemplate = this._prepareTemplatizer(this._findTemplate('template.header') || this.$.defaultHeaderTemplate);
           // needed to override the dataHost correctly in case internal template is used.
@@ -110,6 +128,28 @@
           return template;
         }
 
+        _stampBodyTemplate(template, cells) {
+          if (!template || !this._cells) {
+            return;
+          }
+
+          this._cells.forEach(cell => {
+            if (cell._template !== template) {
+              cell._template = template;
+
+              cell._content.innerHTML = '';
+              const inst = template.templatizer.createInstance();
+              cell._content.appendChild(inst.root);
+              cell._instance = inst;
+
+              cell.setAttribute('hidden-unless-hover', '1');
+
+              inst.index = cell.parentElement.index; // TODO: _index
+              inst.item = cell.parentElement._item;
+            }
+          });
+        }
+
         /** @private */
         connectedCallback() {
           super.connectedCallback();
@@ -121,11 +161,11 @@
         }
 
         _offerEditButtonFor(editingItem, item, editMode) {
-          return editingItem == null && editMode;
+          return item && item._groupId === undefined && editingItem == null && editMode;
         }
 
-        _offerItemActions(editingItem) {
-          return this.itemActions && this.itemActions.length > 0;
+        _offerItemActions(editingItem, item) {
+          return item && item._groupId === undefined && this.itemActions && this.itemActions.length > 0;
         }
 
         _isItemEditing(item, editingItem) {

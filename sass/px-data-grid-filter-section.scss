@@ -4,6 +4,7 @@
   display: block;
   width: 800px;
   max-width: 100%;
+  padding-bottom: 32px;
   --px-btn-min-width: 0;
 }
 
@@ -40,5 +41,6 @@ button.btn.btn--icon.btn--bare--primary {
 }
 
 .add-filter px-icon {
+  margin-top: -3px;
   --iron-icon-height: 16px;
 }

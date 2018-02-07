@@ -69,12 +69,17 @@
       </div>
     </template>
 
-    <px-data-grid-filters-preview filters="[[_filters]]" columns="[[columns]]" localize="[[_boundedLocalize]]"></px-data-grid-filters-preview>
+    <px-data-grid-filters-preview
+      filters="[[_filters]]"
+      columns="[[columns]]"
+      localize="[[_boundedLocalize]]"
+      on-trigger-filters-modal="_openAdvancedFilter">
+    </px-data-grid-filters-preview>
 
     <vaadin-grid size="[[size]]"
                  data-provider="[[_currentDataProvider]]"
                  active-item="[[activeItem]]"
-                 column-reordering-allowed="[[columnReorderingAllowed]]"
+                 column-reordering-allowed="[[_isColumnReorderingAllowed(columnReorderingAllowed,_groupByColumn)]]"
                  expanded-items="[[expandedItems]]"
                  striped$="[[_isStriped(striped,_groupByColumn)]]"
                  selected-items="{{selectedItems}}"
@@ -279,7 +284,8 @@
             },
 
             /**
-             * Set to true to allow column reordering.
+             * Set to true to allow column reordering. Notice that some states will disable
+             * reordering (eg. grouped by value).
              */
             columnReorderingAllowed: {
               type: Boolean,
@@ -523,6 +529,16 @@
             },
 
             /**
+             * If true sets all columns to use ellipsis when text overflows the column,
+             * enabling wrap mode while ellisis mode is enabled is an undefined state.
+             */
+            ellipsis: {
+              type: Boolean,
+              value: false,
+              observer: '_ellipsisModeChanged'
+            },
+
+            /**
              * Shows if there is any pending request for remote data.
              */
             _loading: {
@@ -594,7 +610,9 @@
             },
 
             /**
-             * Default column width if not defined, eg. '100px'
+             * Default column width if not defined, eg. '100px'. Notice that with not
+             * zero flex values this value behaves more as minimum width. See
+             * defaultColumnFlexGrow property.
              */
             defaultColumnWidth: {
               type: String,
@@ -602,9 +620,10 @@
             },
 
             /**
-             * Default column flex if not defined, eg. 1
+             * Default column flex if not defined, eg. 1. Equialent to the CSS flex-grow
+             * property.
              */
-            defaultColumnFlex: {
+            defaultColumnFlexGrow: {
               type: Number,
               value: 1
             },
@@ -629,6 +648,17 @@
               type: String,
               reflectToAttribute: true,
               observer: '_gridHeightChanged'
+            },
+
+            /**
+             * Sets the px-grid to a mode where it and its content will flex to size.
+             * By default the  px-data-grid will take 100% of the available height, this
+             * can be changed by defining the css variable: --px-data-grid-height
+             */
+            flexToSize: {
+              type: Boolean,
+              value: false,
+              reflectToAttribute: true
             },
 
             /**
@@ -660,11 +690,11 @@
 
             /**
              * If enabled in multi selection and sort by selection mode any
-             * changes to selection will cause instant resort
+             * changes to selection will cause instant re-sort.
              */
             instantSortWhenSelection: {
               type: Boolean,
-              value: true
+              value: false
             },
 
             /* If true advanced filter dialog will be rendered in space saving
@@ -767,15 +797,13 @@
           // Override selectItem method to allow easy single select handling
           this._vaadinGrid.selectItem = (item) => this._handleSelectItem(item);
 
+          // Override getItemId to allow group by
+          this._boundedGetItemId = this._gridGetItemId.bind(this);
+          this._vaadinGrid.getItemId = this._boundedGetItemId;
+
           this.addEventListener('column-froze', (event) => this._handleColumnFroze(event));
 
-          this.addEventListener('column-unfroze', (event) => {
-            const columnsRow = this._vaadinGrid._columnTree[this._vaadinGrid._columnTree.length - 1].slice(0);
-            const lastFrozen = columnsRow.filter((column) => column._lastFrozen)[0];
-            if (lastFrozen) {
-              this._vaadinGrid.insertBefore(event.detail.column, lastFrozen.nextSibling);
-            }
-          });
+          this.addEventListener('column-unfroze', (event) => this._handleColumnUnFreeze(event));
 
           this.addEventListener('group-by-column', (event) => {
             this._groupByColumn = event.detail.column;
@@ -829,11 +857,11 @@
             const lastFrozenColumn = columns[lastColumnFrozen];
 
             if (lastColumnFrozen > 0) {
-
               for (let i = 0; i < lastColumnFrozen; ++i) {
                 if (!columns[i].frozen) {
                   columns[i].frozen = true;
                   if (columns[i].mappedObject) {
+
                     columns[i].mappedObject.frozen = true;
                   }
                 }
@@ -877,6 +905,15 @@
           this._vaadinGrid._updateOrders(this._vaadinGrid._columnTree, true);
         }
 
+        _handleColumnUnFreeze(event) {
+          // TODO doesn't work, last-frozen is not updated correctly
+          const columnsRow = this._vaadinGrid._columnTree[this._vaadinGrid._columnTree.length - 1].slice(0);
+          const lastFrozen = columnsRow.filter((column) => column._lastFrozen)[0];
+          if (lastFrozen) {
+            this._vaadinGrid.insertBefore(event.detail.column, lastFrozen.nextSibling);
+          }
+        }
+
         _doInstantSortAfterSelect() {
           return this.instantSortWhenSelection
             && this.allowSortBySelection
@@ -886,7 +923,8 @@
         }
 
         _selectedItemsChanged(selectedItems) {
-          if (this._doInstantSortAfterSelect()) {
+          // Cause resort if ready and asked to instantly re-sort
+          if (this._vaadinGrid && this._doInstantSortAfterSelect()) {
             this._vaadinGrid.clearCache();
           }
         }
@@ -920,7 +958,7 @@
         }
 
         _getColumnFlexGrow(column) {
-          return column.flexGrow === undefined ? this.defaultColumnFlex : column.flexGrow;
+          return column.flexGrow === undefined ? this.defaultColumnFlexGrow : column.flexGrow;
         }
 
         _resolveCellColor(item, column) {
@@ -1053,6 +1091,18 @@
           return items;
         }
 
+        /**
+         * Overridden version of vaadin-grid getItemId, to allow grouping
+         * Always use instance compare in case of hasChildren
+         */
+        _gridGetItemId(item) {
+          if (this._groupByColumn && item && item._groupId) {
+            return item._groupId;
+          } else {
+            return this.itemIdPath ? this._vaadinGrid.get(this.itemIdPath, item) : item;
+          }
+        }
+
         _localDataProvider(params, callback) {
           let items = (Array.isArray(this.tableData) ? this.tableData : []).slice(0);
           if (this._groupByColumn) {
@@ -1065,6 +1115,9 @@
                   if (i !== columnPath) {
                     groupItem[i] = '';
                   }
+                }
+                if (this._groupByColumn.mappedObject) {
+                  groupItem._groupId = '--group--' + this._groupByColumn.mappedObject.id + '-' + value;
                 }
                 groupItem.hasChildren = true;
                 map.set(value, groupItem);
@@ -1216,6 +1269,7 @@
           const defaultName = this.localize('Column #');
           let counter = 0;
           const selected = [];
+          const oneVisibleColumn = this.getVisibleColumns().length <= 1;
 
           this._getColumns().forEach((columnElement) => {
             const index = ++counter;
@@ -1223,10 +1277,12 @@
             const name = columnElement.name ? columnElement.name : (defaultName + index);
             // -column- is temporary work around to limitations of px-dropdown
             const key = '-column-' + name;
+            const groupedByThis = this._groupByColumn === columnElement;
 
             const item = {
               key: key,
-              val: name
+              val: name,
+              disabled: groupedByThis || (oneVisibleColumn && !hidden)
             };
 
             if (!hidden) {
@@ -1463,11 +1519,16 @@
           // To prevent selections
           event.stopPropagation();
           this._editingItem = event.details.item;
+
+          // To refresh row height after edit...
+          this._vaadinGrid.notifyResize();
         }
 
         _cancelEdit(event) {
           this._editingRenderers.forEach((renderer) => renderer.restoreInitial());
           this._editingItem = null;
+          // To refresh row height after edit...
+          this._vaadinGrid.notifyResize();
         }
 
         _isItemEditing(item, editingItem) {
@@ -1498,6 +1559,8 @@
             }
 
             this._editingItem = null;
+            // To refresh row height after edit...
+            this._vaadinGrid.notifyResize();
           }
         }
 
@@ -1570,12 +1633,17 @@
          * Get current visible columns in grid
          */
         getVisibleColumns() {
+          // Do not break if called too early
+          if (this._vaadinGrid == undefined || this._vaadinGrid._columnTree === undefined) {
+            return [];
+          }
+
           return this._vaadinGrid
             ._columnTree[this._vaadinGrid._columnTree.length - 1]
             .slice(0)
             .sort((a, b) => a._order - b._order)
             .map((col) => col.mappedObject)
-            .filter((col) => !col.hidden);
+            .filter((col) => col !== undefined && !col.hidden);
         }
 
         /**
@@ -1704,6 +1772,17 @@
           return striped && !groupByColumn;
         }
 
+        _ellipsisModeChanged(ellipsisMode) {
+          if (ellipsisMode) {
+            this.classList.add('ellipsis');
+          } else {
+            this.classList.remove('ellipsis');
+          }
+          if (this._vaadinGrid) {
+            this._vaadinGrid.notifyResize();
+          }
+        }
+
         /**
          * Rewrite of _compare from vaadin-grid to allow incasesensitive compare
          */
@@ -1730,6 +1809,14 @@
 
         _offerActionColumn(editable, itemActions) {
           return editable || (itemActions && itemActions.length > 0);
+        }
+
+        _isColumnReorderingAllowed(columnReordingAllowed, groupByColumn) {
+          return columnReordingAllowed && !groupByColumn;
+        }
+
+        _openAdvancedFilter(event) {
+          this.shadowRoot.querySelector('px-data-grid-filters-modal').open();
         }
 
         getState() {
