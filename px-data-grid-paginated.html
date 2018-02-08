@@ -35,9 +35,11 @@
       grid-height="{{gridHeight}}"
       item-id-path="{{itemIdPath}}"
       table-actions="{{tableActions}}"
+      item-actions="{{itemActions}}"
       offer-filter-saving="{{offerFilterSaving}}"
       filterable="{{filterable}}"
       editable="{{editable}}"
+      highlight="{{highlight}}"
       default-column-width="{{defaultColumnWidth}}"
       default-column-flex-grow="{{defaultColumnFlexGrow}}">
     </px-data-grid>
@@ -249,6 +251,13 @@
             },
 
             /**
+             * Item actions, see px-data-grid.
+             */
+            itemActions: {
+              type: Array
+            },
+
+            /**
              * Function that provides items lazily. Receives arguments params, callback
              */
             remoteDataProvider: {
@@ -306,8 +315,7 @@
              * ```
              */
             highlight: {
-              type: Array,
-              value: []
+              type: Array
             },
 
             /**

@@ -22,6 +22,7 @@
 <link rel="import" href="px-data-grid-filters-preview.html">
 <link rel="import" href="px-data-grid-sorter.html">
 <link rel="import" href="px-data-grid-action-column.html">
+<link rel="import" href="px-data-grid-edit-column.html">
 
 <link rel="import" href="px-data-grid-filterable-mixin.html">
 
@@ -164,14 +165,21 @@
         </px-data-grid-column>
       </template>
 
-      <template is="dom-if" if="[[_offerActionColumn(editable, itemActions)]]" restamp>
+      <template is="dom-if" if="[[_offerEditColumn(editable)]]" restamp>
+        <px-data-grid-edit-column
+          editted-item="[[_editingItem]]"
+          edit-mode="[[editable]]"
+          edit="[[_boundedEditItem]]"
+          cancel="[[_boundedCancelEdit]]">
+        </px-data-grid-column>
+      </template>
+
+      <template is="dom-if" if="[[_offerActionColumn(editable, itemActions, _editingItem)]]" restamp>
         <px-data-grid-action-column
           item-actions="[[itemActions]]"
           editted-item="[[_editingItem]]"
           edit-mode="[[editable]]"
-          edit="[[_boundedEditItem]]"
-          save="[[_boundedSaveItem]]"
-          cancel="[[_boundedCancelEdit]]">
+          save="[[_boundedSaveItem]]">
         </px-data-grid-column>
       </template>
     </vaadin-grid>
@@ -1201,10 +1209,13 @@
           if (key && typeof key == 'string') {
             // -column- is temporary work around to limitations of px-dropdown
             if (key.indexOf('-column-') === 0) {
-              const columnName = key.substr('-column-'.length);
-              this._getColumnsWithName(columnName).forEach((c) => {
-                c.hidden = c.hidden === undefined ? true : !c.hidden;
-              });
+              const columnId = key.substr('-column-'.length);
+              const column = this._getColumnElementById(columnId);
+              if (column) {
+                column.hidden = column.hidden === undefined ? true : !column.hidden;
+              } else {
+                console.warn('Failed to find column with ID ' + columnId);
+              }
             } else if (key.indexOf('-action-') === 0) {
               const actionId = key.substr('-action-'.length);
               this.dispatchEvent(new CustomEvent('table-action', {
@@ -1269,14 +1280,22 @@
           const defaultName = this.localize('Column #');
           let counter = 0;
           const selected = [];
-          const oneVisibleColumn = this.getVisibleColumns().length <= 1;
+          // Allow 0, as that happens if this gets called before columns are ready
+          const oneVisibleColumn = this.getVisibleColumns().length == 1;
 
           this._getColumns().forEach((columnElement) => {
+            const columnId = columnElement.mappedObject ? columnElement.mappedObject.id : undefined;
+            // If this method gets called before column IDs are generated,
+            // just ignore those columns.
+            if (columnId === undefined) {
+              return;
+            }
+
             const index = ++counter;
             const hidden = columnElement.hidden ? columnElement.hidden : false;
             const name = columnElement.name ? columnElement.name : (defaultName + index);
             // -column- is temporary work around to limitations of px-dropdown
-            const key = '-column-' + name;
+            const key = '-column-' + columnId;
             const groupedByThis = this._groupByColumn === columnElement;
 
             const item = {
@@ -1302,6 +1321,11 @@
 
         _getColumnById(columnId) {
           return this.columns.filter((column) => column.id === columnId)[0];
+        }
+
+        _getColumnElementById(columnId) {
+          return this._vaadinGrid._columnTree[0]
+            .filter(element => element.mappedObject && element.mappedObject.id == columnId)[0];
         }
 
         _scheduleColumnSanityCheck() {
@@ -1807,8 +1831,13 @@
           return 0;
         }
 
-        _offerActionColumn(editable, itemActions) {
-          return editable || (itemActions && itemActions.length > 0);
+        _offerEditColumn(editable) {
+          return editable;
+        }
+
+        _offerActionColumn(editable, itemActions, editingItem) {
+
+          return (editable) || (itemActions && itemActions.length > 0);
         }
 
         _isColumnReorderingAllowed(columnReordingAllowed, groupByColumn) {
